@@ -7,6 +7,8 @@ pygame.init()
 clickfx = pygame.mixer.Sound("jump_3.wav")
 HurtFX = pygame.mixer.Sound("Hurt_1.wav")  #
 coinfx = pygame.mixer.Sound("pickupCoin1.wav")
+deathSFX = pygame.mixer.Sound('explosion.wav')
+gameoverTrigger = False
 # SFX
 pos = ()
 clicked = False
@@ -26,12 +28,15 @@ game_score = 0  # Счёт
 
 bird_fly_through = False
 
-rect_button = Rect(50, 170, 200, 50)
 flying_through = 60
 Tube_create_time = 2000
 time_tube = pygame.time.get_ticks() - Tube_create_time
 game_over = False
 flying = False
+skins_tab = False
+
+skins_i = 4
+skins_j = 7
 
 floor_coordinate = 0
 floor_coordinate_new = 3
@@ -49,8 +54,11 @@ bg = pygame.image.load("Background7.png")
 floor = pygame.image.load("Floor1.png")
 # Птица
 
-Game_over_retry_img = pygame.image.load("Button_Retry.png")  # Кнопка перезапуска
-Game_over_Lose_img = pygame.image.load("Button_Lose.png")  # Кнопка проигрыша
+Game_start_sprite = pygame.image.load('Sprite-start.png')
+Game_over_Lose_img = pygame.image.load("Sprite-retry.png")  # Кнопка проигрыша
+Game_start_skins_sprite = pygame.image.load("Sprite-skins.png")
+Game_start_skins_sprite1 = pygame.image.load('Sprite-standard.png')
+Game_start_skins_sprite2 = pygame.image.load('Sprite-special.png')
 rect_button = Rect(300, 200, 200, 50)  # Хитбокс кнопки перезапуска
 
 
@@ -65,7 +73,7 @@ class Bird(pygame.sprite.Sprite):
         self.images = []
         self.index = 0
         self.counter = 0
-        for q in range(4, 7):
+        for q in range(skins_i, skins_j):
             img = pygame.image.load(f"Sprite-0{q}.png")
             self.images.append(img)
         self.image = self.images[self.index]
@@ -75,6 +83,7 @@ class Bird(pygame.sprite.Sprite):
         self.clicked = False
         self.animation_again = 25
         self.stopped_mid_flight = False
+        self.game_end_vel = 10
 
     def update(self):
         # Полёт
@@ -83,7 +92,6 @@ class Bird(pygame.sprite.Sprite):
                 self.vel += 0.1
             if self.rect.bottom < 350:
                 self.rect.y += int(self.vel)
-        if game_over is False:
             if pygame.mouse.get_pressed()[0] == 1 and self.clicked is False:
                 self.clicked = True
                 self.vel = -4
@@ -91,6 +99,7 @@ class Bird(pygame.sprite.Sprite):
             if pygame.mouse.get_pressed()[0] == 0:
                 self.clicked = False
             # Анимация
+        if game_over is False:
             self.counter += 1
             if self.counter > self.animation_again:
                 self.counter = 0
@@ -100,13 +109,12 @@ class Bird(pygame.sprite.Sprite):
             self.image = self.images[self.index]
 
             self.image = pygame.transform.rotate(self.images[self.index], self.vel * -5)
-        else:
+        elif flying is False and game_over is True:
             self.image = pygame.transform.rotate(self.images[self.index], -90)
         if game_over is True:
-            if self.rect.y > 140:
-                self.rect.y = 280
-            elif self.rect.y < 280:
-                self.rect.y += 3
+            self.rect.y -= int(self.game_end_vel)
+            self.game_end_vel += -0.5
+
 
 
 class Tube(pygame.sprite.Sprite):
@@ -128,6 +136,11 @@ class Tube(pygame.sprite.Sprite):
             self.kill()
 
 
+class PowerUp(pygame.sprite.Sprite):
+    def __init__(self, x, y, position):
+        pass  # TODO ААААААААААААААААААААААААААААА
+
+
 tube_group = pygame.sprite.Group()
 bird_group = pygame.sprite.Group()
 bird = Bird(60, 180)
@@ -140,8 +153,22 @@ def draw_game_over():
     global flying
     flying = False
     font.render("Играть заново?", True, blackVariant)
-    pygame.draw.rect(screen, cyan, rect_button)
-    screen.blit(Game_over_Lose_img, (250, 180))
+    screen.blit(Game_over_Lose_img, (300, 180))
+
+
+rect_start = Rect(300, 100, 200, 100)
+rect_skins = Rect(300, 250, 200, 100)
+
+def draw_main_menu():
+    screen.blit(Game_start_sprite, (300, 100))
+    screen.blit(Game_start_skins_sprite, (300, 250))
+
+rect_skins1 = Rect(100, 100, 150, 200)
+rect_skins2 = Rect(500, 100, 150, 200)
+
+def draw_skins_tab():
+    screen.blit(Game_start_skins_sprite1, (100, 100))
+    screen.blit(Game_start_skins_sprite2, (500, 100))
 
 
 a = True
@@ -152,7 +179,6 @@ while a:
     bird_group.draw(screen)
     bird_group.update()
     tube_group.draw(screen)
-    # tube_group.update()
     screen.blit(floor, (floor_coordinate, 350))
 
     if len(tube_group) > 0:
@@ -167,7 +193,11 @@ while a:
     if pygame.sprite.groupcollide(bird_group, tube_group, False, False):
         game_over = True
 
-    draw_text(game_score, font, black, 400, 300)
+    if flying is True:
+        draw_text(game_score, font, black, 400, 300)
+
+    if skins_tab == True:
+        draw_skins_tab()
 
     if game_over is False:
         floor_coordinate = floor_coordinate - floor_coordinate_new
@@ -177,6 +207,9 @@ while a:
         if abs(bg_coordinate) >= 800:
             bg_coordinate = 0
         tube_group.update()
+
+    if flying is False and game_over is False and skins_tab != True:
+        draw_main_menu()
 
     if flying is True:
         get_ticks = pygame.time.get_ticks()
@@ -191,23 +224,50 @@ while a:
     if bird.rect.bottom >= 350:
         game_over = True
 
+    if bird.rect.top <= 0:
+        game_over = True
+
     if game_over is True:
         draw_game_over()
-
+        if gameoverTrigger == False:
+            pygame.mixer.Sound.play(deathSFX)
+            gameoverTrigger = True
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             a = False
         if event.type == pygame.MOUSEBUTTONDOWN and flying is False and game_over is False:
-            flying = True
+            pos = pygame.mouse.get_pos()
+            if rect_start.collidepoint(pos) and skins_tab != True:
+                flying = True
+            elif rect_skins.collidepoint(pos) and skins_tab != True:
+                skins_tab = True
+            elif rect_skins1.collidepoint(pos) and skins_tab is True:
+                skins_i = 4
+                skins_j = 7
+                bird_group.empty()
+                bird = Bird(60, 180)
+                bird_group.add(bird)
+                skins_tab = False
+                flying = True
+            elif rect_skins2.collidepoint(pos) and skins_tab is True:
+                skins_i = 7
+                skins_j = 10
+                bird_group.empty()
+                bird = Bird(60, 180)
+                bird_group.add(bird)
+                skins_tab = False
+                flying = True
         if event.type == pygame.MOUSEBUTTONDOWN and game_over is True:
             pos = pygame.mouse.get_pos()
             if rect_button.collidepoint(pos):
                 game_over = False
+                flying = False
                 tube_group.empty()
                 bird_group.empty()
                 bird = Bird(60, 180)
                 bird_group.add(bird)
                 game_score = 0
-                flying = False
+                gameoverTrigger = False
+
     pygame.display.flip()
 pygame.quit()
